@@ -1,16 +1,21 @@
+#include "Repo.h"
 #include <curl/curl.h>
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <string>
+#include <vector>
+#include <algorithm>
 
 using json = nlohmann::json;
+
+namespace utils_git {
 
 static size_t writeMemoryCallback(void *contents, size_t size, size_t nmemb, std::string *userp) {
     userp->append((char *)contents, size * nmemb);
     return size * nmemb;
 }
 
-void sendRequest() {
+std::vector<Repo> getRepos(const std::vector<std::string> &exclude_repos) {
     CURL *curl;
     CURLcode result;
     std::string response_data;
@@ -36,11 +41,18 @@ void sendRequest() {
     }
 
     try {
+        std::vector<Repo> result;
         auto repos = json::parse(response_data);
         for (auto &repo : repos) {
-            std::cout << repo["name"] << " -> " << repo["ssh_url"] << std::endl;
+            std::string repoName = repo["name"];
+            if (std::find(exclude_repos.begin(), exclude_repos.end(), repoName) == exclude_repos.end()) {
+                result.push_back(Repo(repoName, repo["ssh_url"]));
+            }
         }
+        return result;
     } catch (json::parse_error &e) {
         std::cerr << "JSON parse error: " << e.what() << std::endl;
     }
+    return std::vector<Repo>();
 }
+} // namespace utils_git
